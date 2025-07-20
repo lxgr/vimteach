@@ -63,9 +63,9 @@ function! VimLLMTeacher(query, include_context)
     endif
     
     let l:prompt .= "The user wants to know how to: " . a:query . "\n\n"
-    let l:prompt .= "Provide ONLY the vim command or keystrokes needed, nothing else. "
-    let l:prompt .= "If multiple steps are needed, separate them with ' then '. "
-    let l:prompt .= "Examples: 'dw' or 'ci\"' or 'gg then VG' or '/pattern then cgn'\n"
+    let l:prompt .= "Provide the vim command followed by a brief explanation. Format: 'command | explanation'. "
+    let l:prompt .= "Concatenate commands directly (e.g. 'ggVG' not 'gg then VG'). "
+    let l:prompt .= "Examples: 'dw | d: delete operator; w: word motion' or 'ggVG | gg: go to start; V: visual line mode; G: go to end' or 'ci\" | c: change operator; i\": inside quotes text object'\n"
     let l:prompt .= "For Ex commands, use just ':reg' not ':reg<CR>'. "
     let l:prompt .= "For search commands that need Enter, use just '/pattern' not '/pattern<CR>'."
     
@@ -91,15 +91,31 @@ function! VimLLMTeacher(query, include_context)
     " Clean up the result
     let l:result = substitute(l:result, '\n\+$', '', '')
     
-    " Store the result for explanation
-    let s:last_command = l:result
+    " Parse command and explanation if present
+    if match(l:result, ' | ') != -1
+        let l:parts = split(l:result, ' | ', 1)
+        let l:command = l:parts[0]
+        let l:explanation = len(l:parts) > 1 ? l:parts[1] : ''
+    else
+        let l:command = l:result
+        let l:explanation = ''
+    endif
+    
+    " Store for later use
+    let s:last_command = l:command
+    let s:last_explanation = l:explanation
     
     " Display the result
     echo ""
     echohl Question
     echo "Query: " . a:query
     echohl None
-    echo "Command: " . l:result
+    echo "Command: " . l:command
+    if l:explanation != ''
+        echohl Comment
+        echo "Concept: " . l:explanation
+        echohl None
+    endif
     echo ""
     
     " Ask for confirmation
@@ -107,10 +123,10 @@ function! VimLLMTeacher(query, include_context)
     
     if l:choice == 1
         " Execute the command
-        call VimLLMExecute(l:result)
+        call VimLLMExecute(l:command)
     elseif l:choice == 3
         " Copy to register
-        let @" = l:result
+        let @" = l:command
         echo "Command copied to unnamed register"
     elseif l:choice == 4
         " Explain the command
@@ -127,8 +143,9 @@ function! VimLLMExplain()
     
     let l:prompt = "You are a vim expert. The user asked how to: " . s:last_query . "\n"
     let l:prompt .= "The suggested command was: " . s:last_command . "\n\n"
-    let l:prompt .= "In ONE LINE, name and explain the basic vim concept(s) used in this command. "
-    let l:prompt .= "Be concise but educational. Focus on the key vim motions, operators, or concepts."
+    let l:prompt .= "Provide a detailed explanation breaking down each part of the command. "
+    let l:prompt .= "Format: 'command | detailed explanation'. "
+    let l:prompt .= "Examples: 'dw | d: delete operator; w: word motion' or 'ggVG | gg: go to start; V: visual line mode; G: go to end' or 'ci\" | c: change operator; i\": inside quotes text object'"
     
     let l:escaped_prompt = shellescape(l:prompt)
     let l:cmd = 'llm -m ' . g:vim_llm_model . ' ' . l:escaped_prompt
@@ -141,13 +158,22 @@ function! VimLLMExplain()
         return
     endif
     
-    " Clean up and display
+    " Clean up and parse explanation
     let l:explanation = substitute(l:explanation, '\n\+$', '', '')
+    
+    " Parse command and explanation if present
+    if match(l:explanation, ' | ') != -1
+        let l:parts = split(l:explanation, ' | ', 1)
+        let l:detailed_explanation = len(l:parts) > 1 ? l:parts[1] : l:explanation
+    else
+        let l:detailed_explanation = l:explanation
+    endif
+    
     echo ""
     echohl Title
     echo "Explanation: "
     echohl None
-    echo l:explanation
+    echo l:detailed_explanation
     echo ""
     
     " Ask again what to do
@@ -163,35 +189,30 @@ endfunction
 
 " Function to execute vim commands safely
 function! VimLLMExecute(commands)
-    " Split by ' then ' to handle multi-step commands
-    let l:steps = split(a:commands, ' then ')
+    let l:command = trim(a:commands)
     
-    for l:step in l:steps
-        let l:step = trim(l:step)
-        
-        " Remove common suffixes that LLMs might add
-        let l:step = substitute(l:step, '<CR>$', '', '')
-        let l:step = substitute(l:step, '<Enter>$', '', '')
-        
-        " Try to execute
-        try
-            if l:step =~ '^:'
-                " Ex command - remove the colon and execute directly
-                execute l:step[1:]
-            elseif l:step =~ '^/'
-                " Search command - add CR for execution
-                execute 'normal! ' . l:step . "\<CR>"
-            else
-                " Normal mode command
-                execute 'normal! ' . l:step
-            endif
-        catch
-            echohl ErrorMsg
-            echo "Error executing: " . l:step . " - " . v:exception
-            echohl None
-            return
-        endtry
-    endfor
+    " Remove common suffixes that LLMs might add
+    let l:command = substitute(l:command, '<CR>$', '', '')
+    let l:command = substitute(l:command, '<Enter>$', '', '')
+    
+    " Try to execute
+    try
+        if l:command =~ '^:'
+            " Ex command - remove the colon and execute directly
+            execute l:command[1:]
+        elseif l:command =~ '^/'
+            " Search command - add CR for execution
+            execute 'normal! ' . l:command . "\<CR>"
+        else
+            " Normal mode command
+            execute 'normal! ' . l:command
+        endif
+    catch
+        echohl ErrorMsg
+        echo "Error executing: " . l:command . " - " . v:exception
+        echohl None
+        return
+    endtry
     
     echo "Command executed successfully!"
 endfunction
