@@ -65,6 +65,7 @@ function! VimLLMTeacher(query, include_context)
     let l:prompt .= "The user wants to know how to: " . a:query . "\n\n"
     let l:prompt .= "Provide the vim command followed by a brief explanation. Format: 'command | explanation'. "
     let l:prompt .= "Concatenate commands directly (e.g. 'ggVG' not 'gg then VG'). "
+    let l:prompt .= "Do NOT prefix with backticks, dots, or any other characters - provide the raw command only. "
     let l:prompt .= "Examples: 'dw | d: delete operator; w: word motion' or 'ggVG | gg: go to start; V: visual line mode; G: go to end' or 'ci\" | c: change operator; i\": inside quotes text object'\n"
     let l:prompt .= "For Ex commands, use just ':reg' not ':reg<CR>'. "
     let l:prompt .= "For search commands that need Enter, use just '/pattern' not '/pattern<CR>'."
