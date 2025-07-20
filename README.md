@@ -2,6 +2,8 @@
 
 Adds an interactive vim tutorial using [llm](https://github.com/simonw/llm).
 
+![Demo](docs/demo.gif)
+
 # Installation
 
 1. Install [`llm`](http://github.com/simonw/llm)
