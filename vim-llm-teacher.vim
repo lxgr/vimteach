@@ -3,7 +3,7 @@
 
 " Configuration variables
 if !exists('g:vim_llm_model')
-    let g:vim_llm_model = 'gemini/gemini-2.5-flash-preview-05-20'
+    let g:vim_llm_model = 'gemini/gemini-2.5-flash'
 endif
 
 if !exists('g:vim_llm_context_lines')
